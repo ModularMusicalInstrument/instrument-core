@@ -12,37 +12,22 @@
 #include <util/setbaud.h>
 #include <util/delay.h>
 
-void init_midi(void)
-{
-	UCSR0B = _BV(TXEN0); // Enable Tx
-	UCSR0C = _BV(UCSZ01) | _BV(UCSZ00); // 8-bit Messages
-	
-	// USART Baud Rate Register
-	UBRR0H = UBRRH_VALUE;
-	UBRR0L = UBRRL_VALUE;
-	#if USE_2X
-	UCSR0A |= _BV(U2X0);
-	#else
-	UCSR0A &= ~(_BV(U2X0));
-	#endif
-}
-
-void send_byte(uint8_t value)
-{
-	loop_until_bit_is_set(UCSR0A, UDRE0);
-	UDR0 = value;
-}
+#include "midi.h"
 
 int main(void)
 {
-	init_midi();
+	midi_init();
+	midi_set_channel(1);
 	
-	while (1)
-	{
-		send_byte(0x90);
-		send_byte(0x3A);
-		send_byte(0x45);
-		_delay_ms(250);
+	midi_send_programchange(80);
+	
+	while (1) {
+		for (int note=0x1E; note < 0x5A; note++) {
+			midi_send_noteon(note, 0x45);
+			_delay_ms(250);
+			midi_send_noteoff(note, 0x00);
+			_delay_ms(250);
+		}
 	}
 }
 
