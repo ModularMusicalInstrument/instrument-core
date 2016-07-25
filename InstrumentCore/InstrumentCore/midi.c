@@ -10,7 +10,6 @@
 
 #include <avr/io.h>
 #include <util/setbaud.h>
-#include <util/delay.h>
 
 static uint8_t default_channel = 0;
 
