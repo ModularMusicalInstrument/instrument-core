@@ -17,5 +17,4 @@ Name | Type | Description
 [Simple Serial Communications With AVR Libc](http://www.appelsiini.net/2011/simple-usart-with-avr-libc) | Web | Another detailed tutorial on AVR USART.
 
 ## License
-
-TBA
+GNU General Public License, Version 3 (GPLv3)
