@@ -134,15 +134,35 @@
     </ToolchainSettings>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="lcd\lcd.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="lcd\lcd.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="main.c">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="midi.c">
+    <Compile Include="midi\midi.c">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="midi.h">
+    <Compile Include="midi\midi.h">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="midi\midi_instrs.h">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="pbi\pbi.c">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="pbi\pbi.h">
+      <SubType>compile</SubType>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="midi" />
+    <Folder Include="lcd" />
+    <Folder Include="pbi" />
   </ItemGroup>
   <Import Project="$(AVRSTUDIO_EXE_PATH)\\Vs\\Compiler.targets" />
 </Project>
