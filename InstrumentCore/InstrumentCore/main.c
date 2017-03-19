@@ -36,8 +36,8 @@
 
 
 // Rotary Encoder ISR
-volatile int instr_sel_nxt = 0;
-volatile uint8_t note_offset = 0x3c; // C4
+volatile uint8_t instr_sel_nxt = 0;
+volatile uint8_t note_transpose = 0x3c; // C4
 
 ISR(INT0_vect)
 {
@@ -46,14 +46,14 @@ ISR(INT0_vect)
 		// Instrument Select
 		if (!bit_is_clear(PIND, PD3))
 		{
-			instr_sel_nxt = (instr_sel_nxt > 0) ? instr_sel_nxt-1 : 127;
+			instr_sel_nxt = (instr_sel_nxt+1) % 128;
 		}
 		else
 		{
-			instr_sel_nxt = (instr_sel_nxt+1) % 128;
+			instr_sel_nxt = (instr_sel_nxt > 0) ? instr_sel_nxt-1 : 127;
 		}
 		char lcd_line1[17];
-		sprintf(lcd_line1, "InstrSel: %d\n", instr_sel_nxt);
+		sprintf(lcd_line1, "InstrmntSel: %d\n", instr_sel_nxt);
 		lcd_clrscr();
 		lcd_puts(lcd_line1);
 		lcd_puts(midi_gm1_instr[instr_sel_nxt]);
@@ -63,16 +63,17 @@ ISR(INT0_vect)
 		// Note Offset Selector
 		if (!bit_is_clear(PIND, PD3))
 		{
-			note_offset = (note_offset > 0) ? note_offset-1 : 127;
+			note_transpose = (note_transpose+1) % 128;
 		}
 		else
 		{
-			note_offset = (note_offset+1) % 128;
+			note_transpose = (note_transpose > 0) ? note_transpose-1 : 127;			
 		}
 		char lcd_line1[17];
-		sprintf(lcd_line1, "Note Offset: %d\n", note_offset);
+		sprintf(lcd_line1, "Transpose:   %d\n", note_transpose);
 		lcd_clrscr();
 		lcd_puts(lcd_line1);
+		lcd_puts("(Note C4=60)");
 	}
 	_delay_ms(200);
 }
@@ -83,8 +84,8 @@ ISR(INT1_vect) {}
 void pbi_instr_exec();
 void pbi_instr_clear();
 
-volatile int dev_addr_term = 0x08;
-volatile uint8_t instr_data[3];
+volatile uint8_t dev_addr_term = 0x08;
+volatile uint8_t instr_data[2];
 volatile uint8_t instr_data_idx = 0;
 
 void pbi_probe_dev_term()
@@ -92,18 +93,13 @@ void pbi_probe_dev_term()
 	while (dev_addr_term > 0x08)
 	{
 		pbi_start();
-		pbi_write_addr(dev_addr_term, true);
-		uint8_t data = pbi_read_ack();
+		pbi_write_addr(dev_addr_term, false);
+		bool ping_ack = (pbi_get_status() == 0x18);
 		pbi_stop();
 		
-		if (data == dev_addr_term)
-		{
-			break;
-		}
-		else
-		{
-			dev_addr_term -= 1;
-		}
+		if (ping_ack) return;
+		
+		dev_addr_term -= 1;
 	}
 }
 
@@ -127,32 +123,25 @@ void pbi_instr_exec()
 			}
 		}
 	}
-	else if (instr_data_idx == 3)
+	else if (instr_data_idx == 2)
 	{
-		if (instr_data[1] == 0x01)
+		// Standard Key Actuation
+		uint8_t note = ((instr_data[0]-0x09) + note_transpose) % 128;
+		if (instr_data[1] != 0x00)
 		{
-			// Standard Key Actuation
-			uint8_t note = ((instr_data[0]-0x09) + note_offset) % 128;
-			if (instr_data[2] != 0x00)
-			{
-				PORTC |= _BV(2);
-				midi_send_noteon(note, instr_data[2]);
-			}
-			else
-			{
-				PORTC &= ~(_BV(2));
-				midi_send_noteoff(note, instr_data[2]);
-			}
+			PORTC |= _BV(2);
+			midi_send_noteon(note, instr_data[1]);
+		}
+		else
+		{
+			PORTC &= ~(_BV(2));
+			midi_send_noteoff(note, 0x00);
 		}
 	}
 }
 
 void pbi_instr_clear()
 {
-	for (uint8_t i = 0; i < sizeof(instr_data); i++)
-	{
-		instr_data[i] = 0;
-	}
 	instr_data_idx = 0;
 }
 
@@ -164,6 +153,7 @@ ISR(TWI_vect)
 	{
 	case TW_SR_SLA_ACK:
 		// START Condition, device addressed
+		pbi_instr_clear();
 		TWCR |= (_BV(TWIE) | _BV(TWINT) | _BV(TWEA) | _BV(TWEN));
 		break;
 	case TW_SR_DATA_ACK:
@@ -225,15 +215,13 @@ int main(void)
 	
 	// Main Program
 	while (1) {
-		for (int note=0x1E; note < 0x5A; note++) {
-			// Process instrument change (if any)
-			ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+		// Process instrument change (if any)
+		ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+		{
+			if (instr_sel_nxt != instr_sel)
 			{
-				if (instr_sel_nxt != instr_sel)
-				{
-					instr_sel = instr_sel_nxt;
-					midi_send_programchange(instr_sel);
-				}
+				instr_sel = instr_sel_nxt;
+				midi_send_programchange(instr_sel);
 			}
 		}
 	}
